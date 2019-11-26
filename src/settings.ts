@@ -10,3 +10,5 @@ export const settings = {
 export const appSettings = {
     debounceTime: 2500,
 }
+
+export const mqttHost = ""
