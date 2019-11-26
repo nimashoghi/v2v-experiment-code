@@ -4,16 +4,21 @@ import {
     endWith,
     filter,
     groupBy,
+    map,
     scan,
     switchMap,
 } from "rxjs/operators"
 import {loadKeyPair, signPacket, verify} from "./crypto"
-import {BroadcastPacket, Packet, RebroadcastPacket, Signed} from "./types"
+import {
+    BroadcastPacket,
+    Packet,
+    RebroadcastPacket,
+    Signed,
+    SignedPacket,
+} from "./types"
 import {assert, sleep, unreachable} from "./util"
 
-const ENDED = Symbol("ENDED")
-
-const verifyPacket = ({signature, ...packet}: Packet) =>
+const verifyPacket = ({signature, ...packet}: SignedPacket) =>
     verify(JSON.stringify(packet), signature, packet.source.publicKey)
 
 const getOriginalPacket = (
@@ -27,72 +32,77 @@ const getOriginalPacket = (
         case "rebroadcast":
             return getOriginalPacket(packet.original)
         default:
-            unreachable()
+            return unreachable()
     }
 }
 
-const groupBySelector = (packet: Packet) => {
+const packetIdCalculator = (packet: SignedPacket) => {
     const groupingPacket =
         packet.type === "broadcast" ? packet : getOriginalPacket(packet)
     return `${groupingPacket.type}-${JSON.stringify(groupingPacket.source)}`
 }
-let onNewPacket: (packet: Packet) => void
-const packets = new Observable<Packet>(observer => {
-    onNewPacket = (packet: Packet) => observer.next(packet)
+
+const getOriginalPacketFromList = ([...packets]: SignedPacket[]) => {
+    const packet = packets.find(packet => packet.type === "broadcast")
+
+    assert(packet?.type === "broadcast")
+    const packetId = packetIdCalculator(packet)
+    assert(packets.every(packet_ => packetIdCalculator(packet_) === packetId))
+
+    return packet
+}
+
+let onNewPacket: (packet: SignedPacket) => void
+const packets = new Observable<SignedPacket>(observer => {
+    onNewPacket = (packet: SignedPacket) => observer.next(packet)
 })
 
-type StreamValueType = Packet | typeof ENDED
 const packetStream = packets.pipe(
     filter(packet => verifyPacket(packet)),
-    groupBy(groupBySelector, undefined, grouped =>
+    groupBy(packetIdCalculator, undefined, grouped =>
         grouped.pipe(debounceTime(1500)),
     ),
     switchMap(obs =>
         obs.pipe(
-            endWith(ENDED),
             scan(
-                (acc, packet) => [...acc, packet] as StreamValueType[],
-                [] as StreamValueType[],
+                (acc, packet) => [...acc, packet] as SignedPacket[],
+                [] as SignedPacket[],
             ),
         ),
     ),
+    map(
+        packets =>
+            [
+                getOriginalPacketFromList(packets),
+                calculateConfidenceScore(packets),
+                packets,
+            ] as const,
+    ),
 )
 
-let last = Date.now()
-packetStream.subscribe(packets => {
+packetStream.subscribe(([packet, confidence, packets]) => {
     console.log({
+        packet,
+        confidence,
         packets,
-        confidence: calculateConfidenceScore(packets),
-        dateDiff: Date.now() - last,
     })
-    last = Date.now()
 })
 
 const sensedQRCode = (s: any) => true
 
-const getDepth = (message: Packet): number =>
+const getDepth = (message: SignedPacket): number =>
     message.type === "broadcast" ? 1 : 1 + getDepth(message.original)
 
-const calculateConfidenceScore = (values: StreamValueType[]) =>
+const calculateConfidenceScore = (values: SignedPacket[]) =>
     values
-        .map(message => {
-            if (message === ENDED) {
-                return 0
-            }
-
-            if (!sensedQRCode(message)) {
-                return 0
-            }
-
-            return 1 / getDepth(message)
-        })
+        .map(message => (sensedQRCode(message) ? 1 / getDepth(message) : 0))
         .reduce((acc, curr) => acc + curr, 0)
 
 const main = async () => {
     console.log(`Started`)
 
     const {privateKey, publicKey} = await loadKeyPair("./")
-    const source: Packet["source"] = {
+    const source: SignedPacket["source"] = {
         id: "fhdiso",
         publicKey: publicKey.export({
             format: "pem",

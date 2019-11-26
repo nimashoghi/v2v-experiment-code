@@ -23,8 +23,8 @@ export interface BroadcastPacket extends PacketBase {
 
 export interface RebroadcastPacket extends PacketBase {
     type: "rebroadcast"
-    original: Packet
+    original: SignedPacket
 }
 
-export type Packet = Signed<BroadcastPacket> | Signed<RebroadcastPacket>
-export type UnsignedPacket = BroadcastPacket | RebroadcastPacket
+export type Packet = BroadcastPacket | RebroadcastPacket
+export type SignedPacket = Signed<BroadcastPacket> | Signed<RebroadcastPacket>

@@ -2,7 +2,7 @@ import crypto from "crypto"
 import {promises as fs} from "fs"
 import path from "path"
 import {settings} from "./settings"
-import {Signed, UnsignedPacket} from "./types"
+import {Packet, Signed} from "./types"
 
 export const loadKeyPair = async (directory: string) => {
     const [privateKey, publicKey] = await Promise.all([
@@ -36,7 +36,7 @@ export const sign = (message: string, key: KeyInput) =>
         convertKeyInput(key, "private"),
     )
 
-export const signPacket = <T extends UnsignedPacket>(
+export const signPacket = <T extends Packet>(
     original: T,
     privateKey: KeyInput,
 ): Signed<T> => ({
