@@ -8,35 +8,13 @@ import {
     switchMap,
 } from "rxjs/operators"
 import {loadKeyPair, signPacket, verify} from "./crypto"
-import {
-    BroadcastPacket,
-    Packet,
-    RebroadcastPacket,
-    Signed,
-    UnsignedPacket,
-} from "./types"
+import {BroadcastPacket, Packet, RebroadcastPacket, Signed} from "./types"
 import {assert, sleep, unreachable} from "./util"
 
 const ENDED = Symbol("ENDED")
 
 const verifyPacket = ({signature, ...packet}: Packet) =>
     verify(JSON.stringify(packet), signature, packet.source.publicKey)
-
-const packetGroupingKey = (packet: Packet) =>
-    `${packet.type}-${JSON.stringify(packet.source)}`
-
-const areSamePacket = (lhs: UnsignedPacket, rhs: UnsignedPacket) =>
-    JSON.stringify(lhs) === JSON.stringify(rhs)
-
-const areRelatedPackets = (...packets: Packet[]) => {
-    if (packets.length === 0) {
-        return true
-    }
-    const [first, ...rest] = packets.map(packet =>
-        packet.type === "broadcast" ? packet : getOriginalPacket(packet),
-    )
-    return rest.every(packet => areSamePacket(packet, first))
-}
 
 const getOriginalPacket = (
     packet: Signed<RebroadcastPacket>,
@@ -53,11 +31,11 @@ const getOriginalPacket = (
     }
 }
 
-const groupBySelector = (packet: Packet) =>
-    packetGroupingKey(
-        packet.type === "broadcast" ? packet : getOriginalPacket(packet),
-    )
-
+const groupBySelector = (packet: Packet) => {
+    const groupingPacket =
+        packet.type === "broadcast" ? packet : getOriginalPacket(packet)
+    return `${groupingPacket.type}-${JSON.stringify(groupingPacket.source)}`
+}
 let onNewPacket: (packet: Packet) => void
 const packets = new Observable<Packet>(observer => {
     onNewPacket = (packet: Packet) => observer.next(packet)
