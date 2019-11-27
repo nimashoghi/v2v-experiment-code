@@ -1,40 +1,44 @@
 import * as MQTT from "async-mqtt"
 import {ReplaySubject} from "rxjs"
+import {filter} from "rxjs/operators"
 import {KeyInput, signPacket} from "./crypto"
-import {mqttHost} from "./settings"
+import {mqttHost, packetExpirationDuration} from "./settings"
 import {Packet, SignedPacket} from "./types"
-import {assert} from "./util"
+import {assertDefined} from "./util"
 
-// TODO: Implement getAllClients
-export const getAllClients = () => {
-    assert(process.env.ALL_CLIENTS)
-    return process.env.ALL_CLIENTS.split(",")
-}
+const MY_TOPIC = assertDefined(process.env.MY_TOPIC)
+const ALL_TOPICS = assertDefined(process.env.ALL_TOPICS)
+    .split(",")
+    .filter(topic => topic !== MY_TOPIC)
 
-export const getMyTopicName = () => {
-    assert(process.env.MY_TOPIC)
-    return process.env.MY_TOPIC
-}
+export const packetsSubject = new ReplaySubject<SignedPacket>()
+export const packets = packetsSubject.pipe(
+    //
+    filter(({source: {id, timestamp}}) => {
+        const timeSincePacket = Date.now() - timestamp
+        if (timeSincePacket > packetExpirationDuration) {
+            console.log(`Packet ${id} has already expired. Ignoring...`)
+            return false
+        }
+        return true
+    }),
+)
 
 const client = MQTT.connect(mqttHost)
 
 export const broadcastMessage = async (packet: SignedPacket) => {
-    await client.publish(getMyTopicName(), JSON.stringify(packet))
+    await client.publish(MY_TOPIC, JSON.stringify(packet))
 }
 export const broadcastSignedMessage = async <T extends Packet>(
     original: T,
     privateKey: KeyInput,
 ) => await broadcastMessage(signPacket<T>(original, privateKey) as SignedPacket)
 
-// TODO: Implement topicNameMatchesPacketId
-// const topicNameMatchesPacketId = (topic: string, packet: SignedPacket) => true
-
-export const hookUpMqttToSubject = async (
-    subject: ReplaySubject<SignedPacket>,
-) => {
-    const topics = getAllClients()
+const main = async () => {
     client.on("message", (_, payload) =>
-        subject.next(JSON.parse(payload.toString())),
+        packetsSubject.next(JSON.parse(payload.toString())),
     )
-    await client.subscribe(topics)
+    await client.subscribe(ALL_TOPICS)
 }
+
+main().catch(console.error)

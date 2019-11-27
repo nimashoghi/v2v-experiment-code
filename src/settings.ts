@@ -20,3 +20,9 @@ export const sensingThreshold = 5000
 export const maxNumRetries = 5
 
 export const confidenceThreshold = 1.0
+
+export const qrCodeServerPort = 3000
+
+// how long after a packet's timestamp can we trust it for
+// def: 10 seconds
+export const packetExpirationDuration = 15000

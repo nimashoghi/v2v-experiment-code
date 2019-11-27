@@ -7,3 +7,4 @@ scripts/
 .gitignore
 .prettierrc.yaml
 keys/
+QrCode/
