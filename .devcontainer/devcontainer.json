@@ -13,8 +13,5 @@
         "--env-file",
         "./.env"
     ],
-    "extensions": [
-        "wallabyjs.quokka-vscode",
-        "esbenp.prettier-vscode"
-    ]
+    "extensions": ["wallabyjs.quokka-vscode", "esbenp.prettier-vscode"]
 }

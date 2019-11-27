@@ -1,5 +1,7 @@
 export type BroadcastEvent = any
 
+export type ObjectLocation = "LEFT" | "CENTER" | "RIGHT"
+
 export interface PacketSource {
     id: string
     timestamp: number
@@ -23,6 +25,7 @@ export interface BroadcastPacket extends PacketBase {
 
 export interface RebroadcastPacket extends PacketBase {
     type: "rebroadcast"
+    location: ObjectLocation
     original: SignedPacket
 }
 

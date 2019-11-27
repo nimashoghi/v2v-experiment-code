@@ -1,22 +1,22 @@
-import {Observable} from "rxjs"
+import {MonoTypeOperatorFunction, range, ReplaySubject, timer} from "rxjs"
 import {
     debounceTime,
-    endWith,
     filter,
     groupBy,
     map,
+    mergeMap,
+    retryWhen,
     scan,
     switchMap,
+    zip,
 } from "rxjs/operators"
+import uuid from "uuid/v4"
 import {loadKeyPair, signPacket, verify} from "./crypto"
-import {
-    BroadcastPacket,
-    Packet,
-    RebroadcastPacket,
-    Signed,
-    SignedPacket,
-} from "./types"
-import {assert, sleep, unreachable} from "./util"
+import {broadcastSignedMessage} from "./mqtt"
+import {getQrCodeLocation, sensedQrCode, subscribeToQrCode} from "./qr"
+import {confidenceThreshold} from "./settings"
+import {BroadcastPacket, RebroadcastPacket, Signed, SignedPacket} from "./types"
+import {assert, runAsync, sleep, unreachable} from "./util"
 
 const verifyPacket = ({signature, ...packet}: SignedPacket) =>
     verify(JSON.stringify(packet), signature, packet.source.publicKey)
@@ -52,13 +52,27 @@ const getOriginalPacketFromList = ([...packets]: SignedPacket[]) => {
     return packet
 }
 
-let onNewPacket: (packet: SignedPacket) => void
-const packets = new Observable<SignedPacket>(observer => {
-    onNewPacket = (packet: SignedPacket) => observer.next(packet)
-})
+// let onNewPacket: (packet: SignedPacket) => void
+// const packets = new Observable<SignedPacket>(observer => {
+//     onNewPacket = (packet: SignedPacket) => observer.next(packet)
+// })
+const packets = new ReplaySubject<SignedPacket>()
 
-const packetStream = packets.pipe(
-    filter(packet => verifyPacket(packet)),
+const retryProcessing = <T>(): MonoTypeOperatorFunction<T> =>
+    retryWhen(attempts =>
+        range(1, 5).pipe(
+            zip(attempts, i => {
+                return i
+            }),
+            mergeMap(i => {
+                console.log("waiting for 1 second and retrying")
+                return timer(1000)
+            }),
+        ),
+    )
+
+const verifiedPackets = packets.pipe(filter(packet => verifyPacket(packet)))
+const legitimatePackets = verifiedPackets.pipe(
     groupBy(packetIdCalculator, undefined, grouped =>
         grouped.pipe(debounceTime(1500)),
     ),
@@ -78,36 +92,138 @@ const packetStream = packets.pipe(
                 packets,
             ] as const,
     ),
+    filter(([, [score, unsensed]]) => {
+        if (score < confidenceThreshold) {
+            if (unsensed) {
+                console.log(
+                    `Received packet with low confidence, but we have not verified all QR codes. Waiting...`,
+                )
+                throw new Error()
+            }
+
+            console.log(`Received packet with low confidence. Ignoring`)
+            return false
+        }
+        return true
+    }),
+    retryProcessing(),
 )
 
-packetStream.subscribe(([packet, confidence, packets]) => {
-    console.log({
-        packet,
-        confidence,
-        packets,
-    })
-})
-
-const sensedQRCode = (s: any) => true
+const onNewPacket = (packet: SignedPacket) => {
+    console.log(`Received verified packet: ${packet}`)
+}
 
 const getDepth = (message: SignedPacket): number =>
     message.type === "broadcast" ? 1 : 1 + getDepth(message.original)
 
 const calculateConfidenceScore = (values: SignedPacket[]) =>
     values
-        .map(message => (sensedQRCode(message) ? 1 / getDepth(message) : 0))
-        .reduce((acc, curr) => acc + curr, 0)
+        .map(message => {
+            if (
+                !sensedQrCode(
+                    message.source.publicKey,
+                    message.source.timestamp,
+                )
+            ) {
+                return [0, true] as const
+            }
+            return [1 / getDepth(message), false] as const
+        })
+        .reduce(
+            ([accScore, accUnsensed], [currScore, currUnsensed]) =>
+                [accScore + currScore, accUnsensed || currUnsensed] as [
+                    number,
+                    boolean,
+                ],
+            [0, false] as [number, boolean],
+        )
+
+const newSource = (publicKey: string) => ({
+    id: uuid(),
+    publicKey,
+    timestamp: Date.now(),
+})
+
+// const generateLocationChain = (packets: [SignedPacket, ObjectLocation][]) => {
+//     let [packet, location] = assertDefined(
+//         packets.find(([{type}]) => type === "broadcast"),
+//     )
+//     let chain: ObjectLocation[] = []
+//     while (true) {
+//         const [parent, location] = packets.find(
+//             ([p]) => JSON.stringify(p) === JSON.stringify(packet),
+//         ) ?? [undefined, undefined]
+
+//         if (!parent) {
+//             return chain
+//         }
+//         chain = [...chain, location]
+//     }
+// }
 
 const main = async () => {
     console.log(`Started`)
 
-    const {privateKey, publicKey} = await loadKeyPair("./")
+    const {privateKey, publicKey} = await loadKeyPair()
+
+    subscribeToQrCode()
+    // await hookUpMqttToSubject(packets)
+
+    verifiedPackets
+        .pipe(
+            filter(packet => {
+                if (
+                    !sensedQrCode(
+                        packet.source.publicKey,
+                        packet.source.timestamp,
+                    )
+                ) {
+                    console.log("not sensed. throwing")
+                    throw new Error()
+                }
+                return true
+            }),
+            retryProcessing(),
+        )
+        .subscribe(original =>
+            runAsync(async () => {
+                const location = getQrCodeLocation(original.source.publicKey)
+                if (!location) {
+                    console.log(
+                        `Could not get location for QR code ${original.source.publicKey}`,
+                    )
+                    return
+                }
+                await broadcastSignedMessage(
+                    {
+                        source: newSource(publicKey),
+                        type: "rebroadcast",
+                        location,
+                        original,
+                    },
+                    privateKey,
+                )
+            }),
+        )
+
+    const processed = new Set<string>()
+    legitimatePackets.subscribe(
+        ([packet]) => {
+            console.log(packet)
+            const packetId = packetIdCalculator(packet)
+            if (processed.has(packetId)) {
+                return
+            }
+            processed.add(packetId)
+
+            onNewPacket(packet)
+        },
+        error => console.log({error}),
+    )
+
     const source: SignedPacket["source"] = {
         id: "fhdiso",
-        publicKey: publicKey.export({
-            format: "pem",
-            type: "pkcs1",
-        }) as string,
+        publicKey,
         timestamp: 41421321,
     }
     const packet = signPacket(
@@ -119,29 +235,43 @@ const main = async () => {
         privateKey,
     )
 
-    onNewPacket(packet)
-    await sleep(1000)
+    packets.next(packet)
+    await sleep(6000)
 
-    const rebroadcastPacket = signPacket(
-        {type: "rebroadcast", original: packet, source},
-        privateKey,
-    )
-    onNewPacket(rebroadcastPacket)
-    await sleep(1000)
+    packets.next(packet)
 
-    const rebroadcastRebroadcastPacket = signPacket(
-        {type: "rebroadcast", original: rebroadcastPacket, source},
-        privateKey,
-    )
-    onNewPacket(rebroadcastRebroadcastPacket)
-    await sleep(1000)
+    // const rebroadcastPacket = signPacket(
+    //     {
+    //         type: "rebroadcast",
+    //         original: packet,
+    //         location: "CENTER",
+    //         source,
+    //     },
+    //     privateKey,
+    // )
+    // packets.next(rebroadcastPacket)
+    // await sleep(1000)
 
-    onNewPacket(rebroadcastPacket)
-    await sleep(1000)
+    // const rebroadcastRebroadcastPacket = signPacket(
+    //     {
+    //         type: "rebroadcast",
+    //         original: rebroadcastPacket,
+    //         location: "CENTER",
+    //         source,
+    //     },
+    //     privateKey,
+    // )
+    // packets.next(rebroadcastRebroadcastPacket)
+    // await sleep(1000)
+
+    // packets.next(rebroadcastPacket)
+    // await sleep(1000)
 
     while (true) {
         await sleep(500)
     }
+
+    await sleep(10000)
 }
 
 main().catch(console.error)

@@ -1,40 +1,40 @@
 import * as MQTT from "async-mqtt"
-import {Observable} from "rxjs"
+import {ReplaySubject} from "rxjs"
+import {KeyInput, signPacket} from "./crypto"
 import {mqttHost} from "./settings"
-import {SignedPacket} from "./types"
-import {assert, runAsync} from "./util"
+import {Packet, SignedPacket} from "./types"
+import {assert} from "./util"
 
 // TODO: Implement getAllClients
-export const getAllClients = async () => ["someClient"]
-
-export const getMyTopicName = () => ""
-
-export const createClient = async (host = mqttHost) =>
-    await MQTT.connectAsync(host)
-
-export const broadcastMessage = async (
-    client: MQTT.AsyncMqttClient,
-    packet: SignedPacket,
-) => {
-    await client.publish(getMyTopicName(), JSON.stringify(packet))
+export const getAllClients = () => {
+    assert(process.env.ALL_CLIENTS)
+    return process.env.ALL_CLIENTS.split(",")
 }
 
-// TODO: Implement topicNameMatchesPacketId
-const topicNameMatchesPacketId = (topic: string, packet: SignedPacket) => true
+export const getMyTopicName = () => {
+    assert(process.env.MY_TOPIC)
+    return process.env.MY_TOPIC
+}
 
-export const getReceivedPacketsObservable = (client: MQTT.AsyncMqttClient) =>
-    new Observable<SignedPacket>(observer => {
-        let topics: string[] = []
-        runAsync(async () => {
-            topics = await getAllClients()
-            client.on("message", (topic, payload) => {
-                const packet: SignedPacket = JSON.parse(payload.toString())
-                // TODO: do some sort of validation on the packet itself
-                assert(topicNameMatchesPacketId(topic, packet))
-                observer.next(packet)
-            })
-            await client.subscribe(topics)
-        })
-        return () =>
-            runAsync(async () => void (await client.unsubscribe(topics)))
-    })
+const client = MQTT.connect(mqttHost)
+
+export const broadcastMessage = async (packet: SignedPacket) => {
+    await client.publish(getMyTopicName(), JSON.stringify(packet))
+}
+export const broadcastSignedMessage = async <T extends Packet>(
+    original: T,
+    privateKey: KeyInput,
+) => await broadcastMessage(signPacket<T>(original, privateKey) as SignedPacket)
+
+// TODO: Implement topicNameMatchesPacketId
+// const topicNameMatchesPacketId = (topic: string, packet: SignedPacket) => true
+
+export const hookUpMqttToSubject = async (
+    subject: ReplaySubject<SignedPacket>,
+) => {
+    const topics = getAllClients()
+    client.on("message", (_, payload) =>
+        subject.next(JSON.parse(payload.toString())),
+    )
+    await client.subscribe(topics)
+}

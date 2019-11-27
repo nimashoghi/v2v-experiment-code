@@ -1,17 +1,20 @@
 import crypto from "crypto"
 import {promises as fs} from "fs"
-import path from "path"
 import {settings} from "./settings"
 import {Packet, Signed} from "./types"
 
-export const loadKeyPair = async (directory: string) => {
+export const loadKeyPair = async () => {
     const [privateKey, publicKey] = await Promise.all([
         fs
-            .readFile(path.join(directory, "private.pem"))
-            .then(crypto.createPrivateKey),
+            .readFile(
+                process.env.PRIVATE_KEY_LOCATION ?? "./keys/private-4.pem",
+            )
+            .then(crypto.createPrivateKey)
+            .then(key => key.export({format: "pem", type: "pkcs1"}).toString()),
         fs
-            .readFile(path.join(directory, "public.pem"))
-            .then(crypto.createPublicKey),
+            .readFile(process.env.PUBLIC_KEY_LOCATION ?? "./keys/public-4.pem")
+            .then(crypto.createPublicKey)
+            .then(key => key.export({format: "pem", type: "pkcs1"}).toString()),
     ])
     return {privateKey, publicKey}
 }

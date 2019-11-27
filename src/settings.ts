@@ -11,4 +11,12 @@ export const appSettings = {
     debounceTime: 2500,
 }
 
-export const mqttHost = ""
+export const mqttHost = process.env.MQTT_HOST
+
+// how long to keep the cache for something that is sensed already
+export const sensingThreshold = 5000
+
+// number of retries of processing a message
+export const maxNumRetries = 5
+
+export const confidenceThreshold = 1.0

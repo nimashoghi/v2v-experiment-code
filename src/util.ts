@@ -7,6 +7,14 @@ export function assert(
     }
 }
 
+export const assertDefined = <T>(
+    value: T | undefined,
+    message = "Assertion failed!",
+): T => {
+    assert(value !== undefined, message)
+    return value
+}
+
 export const unreachable = (
     message = "This area of code should be unreachable! Terminating.",
 ): never => {
