@@ -71,9 +71,9 @@ while True:
 		sio.emit("qr-codes",{"codes":data_list})
 		print({"codes":data_list})
 	# show the output image
-	cv2.imshow("Image", frame)
-	if cv2.waitKey(1) & 0xFF == ord('q'):
-		break
+	# cv2.imshow("Image", frame)
+	# if cv2.waitKey(1) & 0xFF == ord('q'):
+		# break
 	print("Processing Time: " + str(time.time() - start))
 
-cv2.waitKey(0)
+# cv2.waitKey(0)

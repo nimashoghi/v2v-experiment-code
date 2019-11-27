@@ -21,7 +21,9 @@ export const maxNumRetries = 5
 
 export const confidenceThreshold = 1.0
 
-export const qrCodeServerPort = 3000
+export const qrCodeServerPort = parseInt(
+    process.env.SOCKET_SERVER_PORT ?? "3000",
+)
 
 // how long after a packet's timestamp can we trust it for
 // def: 10 seconds

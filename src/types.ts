@@ -12,11 +12,11 @@ export interface PacketBase {
     source: PacketSource
 }
 
-export type Unsigned<T extends PacketBase & {signature: Buffer}> = Omit<
+export type Unsigned<T extends PacketBase & {signature: string}> = Omit<
     T,
     "signature"
 >
-export type Signed<T extends PacketBase> = T & {signature: Buffer}
+export type Signed<T extends PacketBase> = T & {signature: string}
 
 export interface BroadcastPacket extends PacketBase {
     type: "broadcast"

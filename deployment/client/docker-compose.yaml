@@ -10,3 +10,4 @@ services:
             # PUBLIC_KEY_LOCATION: ""
         volumes:
             - "./keys/${CLIENT_ID}/:/app/keys/"
+            - "./simulation.json:/app/simulation.json"
