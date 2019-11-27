@@ -58,7 +58,7 @@ while True:
 		# our output image we need to convert it to a string first
 		barcodeData = barcode.data.decode("utf-8").replace('\n','')
 		barcodeType = barcode.type
-		data_list.append({"publicKey": f"-----BEGIN RSA PUBLIC KEY-----{barcodeData}-----END RSA PUBLIC KEY-----","location":location})
+		data_list.append({"publicKey": "-----BEGIN RSA PUBLIC KEY-----{}-----END RSA PUBLIC KEY-----".format(barcodeData),"location":location})
 
 		# draw the barcode data and barcode type on the image
 		text = "{} ({})".format(barcodeData, barcodeType)
@@ -75,5 +75,6 @@ while True:
 	# if cv2.waitKey(1) & 0xFF == ord('q'):
 		# break
 	print("Processing Time: " + str(time.time() - start))
+	time.sleep(1)
 
 # cv2.waitKey(0)

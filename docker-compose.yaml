@@ -1,7 +1,5 @@
 version: "3.7"
 services:
-    qr:
-        image: nimashoghi/v2v-qr
     client:
         image: nimashoghi/v2v-encryption
         ports:
