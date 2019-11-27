@@ -1,4 +1,4 @@
-FROM node:alpine as builder
+FROM arm32v7/node:alpine
 
 WORKDIR /app
 COPY . .

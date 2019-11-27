@@ -8,3 +8,4 @@ scripts/
 .prettierrc.yaml
 keys/
 QrCode/
+deployment/
