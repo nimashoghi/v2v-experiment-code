@@ -1,0 +1,12 @@
+version: "3.7"
+services:
+    client:
+        image: nimashoghi/v2v-encryption
+        environment:
+            MQTT_HOST: "mqtt://192.168.0.109"
+            MY_TOPIC: ${CLIENT_ID}
+            ALL_TOPICS: "0,1,2,3"
+            # PRIVATE_KEY_LOCATION: ""
+            # PUBLIC_KEY_LOCATION: ""
+        volumes:
+            - "./keys/${CLIENT_ID}/:/app/keys/"
