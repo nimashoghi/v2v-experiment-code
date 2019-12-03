@@ -41,6 +41,7 @@ import tkMessageBox
 import tkSimpleDialog
 import socketio
 
+import base64
 import os
 import struct
 import sys, glob # for listing serial ports
@@ -121,7 +122,7 @@ class TetheredDriveApp(Tk):
     # sendCommandRaw takes a string interpreted as a byte array
     def sendCommandRaw(self, command):
         global connection
-        sio.emit("commands", {"command": command})
+        sio.emit("commands", {"command": base64.b64encode(command)})
 
         try:
             if connection is not None:
