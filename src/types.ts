@@ -1,4 +1,8 @@
-export type BroadcastEvent = any
+export interface MovementEvent {
+    type: "movement"
+    command: string
+}
+export type BroadcastEvent = MovementEvent
 
 export type ObjectLocation = "LEFT" | "CENTER" | "RIGHT"
 

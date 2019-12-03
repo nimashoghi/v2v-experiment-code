@@ -5,7 +5,6 @@ import {MonoTypeOperatorFunction, range, timer} from "rxjs"
 import {
     debounceTime,
     filter,
-    flatMap,
     groupBy,
     map,
     mergeMap,
@@ -16,7 +15,7 @@ import {
     zip,
 } from "rxjs/operators"
 import uuid from "uuid/v4"
-import {loadKeyPair, verify} from "./crypto"
+import {privateKey, publicKey, verify} from "./crypto"
 import {broadcastSignedMessage, packets} from "./mqtt"
 import {
     getQrCodeLocation,
@@ -25,8 +24,8 @@ import {
     registry,
     sensedQrCode,
 } from "./qr"
+import {executeCommand} from "./robot"
 import {confidenceThreshold} from "./settings"
-import {getAllSimulations} from "./simulation"
 import {
     BroadcastPacket,
     Packet,
@@ -35,8 +34,6 @@ import {
     SignedPacket,
 } from "./types"
 import {assert, removeDuplicates, runAsync, unreachable} from "./util"
-
-const {privateKey, publicKey} = loadKeyPair()
 
 const verifyPacket = ({signature, ...packet}: SignedPacket) =>
     verify(
@@ -171,7 +168,7 @@ const stringify = (packet: Packet | SignedPacket): string => {
     return JSON.stringify(packet, undefined, 4)
 }
 
-const onNewPacket = (
+const onNewPacket = async (
     packet: Signed<BroadcastPacket>,
     _: Signed<RebroadcastPacket>[],
 ) => {
@@ -181,6 +178,15 @@ const onNewPacket = (
             1000} seconds after it was posted.`,
     )
     console.log(`Received verified packet: ${stringify(packet)}`)
+
+    const {event} = packet
+    switch (event.type) {
+        case "movement":
+            await executeCommand(event.command)
+            break
+        default:
+            unreachable()
+    }
 }
 
 const getDepth = (message: SignedPacket): number =>
@@ -290,7 +296,7 @@ const main = async () => {
 
     const processed = new Set<string>()
     legitimatePackets.subscribe(
-        ([packet, rebroadcasts]) => {
+        async ([packet, rebroadcasts]) => {
             console.log(packet)
             const packetId = packetIdCalculator(packet)
             if (processed.has(packetId)) {
@@ -301,31 +307,31 @@ const main = async () => {
             }
             processed.add(packetId)
 
-            onNewPacket(packet, rebroadcasts)
+            await onNewPacket(packet, rebroadcasts)
         },
         error => console.log({error}),
     )
 
-    const simulations = await getAllSimulations()
-    simulations
-        .pipe(
-            flatMap(async event => {
-                console.log(
-                    `Broadcasting the following event: ${JSON.stringify(
-                        event,
-                    )}`,
-                )
-                await broadcastSignedMessage(
-                    {
-                        type: "broadcast",
-                        event,
-                        source: newSource(publicKey),
-                    },
-                    privateKey,
-                )
-            }),
-        )
-        .subscribe(() => {})
+    // const simulations = await getAllSimulations()
+    // simulations
+    //     .pipe(
+    //         flatMap(async event => {
+    //             console.log(
+    //                 `Broadcasting the following event: ${JSON.stringify(
+    //                     event,
+    //                 )}`,
+    //             )
+    //             await broadcastSignedMessage(
+    //                 {
+    //                     type: "broadcast",
+    //                     event,
+    //                     source: newSource(publicKey),
+    //                 },
+    //                 privateKey,
+    //             )
+    //         }),
+    //     )
+    //     .subscribe(() => {})
 }
 
 main().catch(console.error)

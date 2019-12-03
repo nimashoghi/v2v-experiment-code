@@ -21,6 +21,8 @@ export const loadKeyPair = () => ({
         .replace(/\\n/g, ""),
 })
 
+export const {privateKey, publicKey} = loadKeyPair()
+
 const encodeMessage = (message: string) =>
     Buffer.from(message, settings.encoding)
 

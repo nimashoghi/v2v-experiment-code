@@ -9,3 +9,5 @@ scripts/
 keys/
 QrCode/
 deployment/
+keyboard-control/
+dist/

@@ -1,21 +1,22 @@
 # import the necessary packages
 from pyzbar import pyzbar
-import argparse
 import cv2
 import socketio
+import os
 import time
 sio = socketio.Client()
 
 
 # construct the argument parser and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-n", "--ip", required=True,
-	help="server ip address")
-ap.add_argument("-v", "--video", required=True,
-	help="video")
-args = vars(ap.parse_args())
-ip = args["ip"]
-video = int(args["video"]) if args["video"].isnumeric() else args["video"]
+# ap = argparse.ArgumentParser()
+# ap.add_argument("-n", "--ip", required=True,
+# 	help="server ip address")
+# ap.add_argument("-v", "--video", required=True,
+# 	help="video")
+# args = vars(ap.parse_args())
+ip = os.environ["IP_ADDRESS"]
+video = os.environ["VIDEO_INPUT"]
+video = int(video) if video.isnumeric() else video
 print('http://{address}:8080'.format(address=ip))
 sio.connect('http://{address}:8080'.format(address=ip))
 

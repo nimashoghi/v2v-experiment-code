@@ -1,6 +1,9 @@
 import {Subject} from "rxjs"
 import {scan, startWith, tap} from "rxjs/operators"
 import io from "socket.io"
+import uuid from "uuid/v4"
+import {privateKey, publicKey} from "./crypto"
+import {broadcastSignedMessage} from "./mqtt"
 import {qrCodeServerPort, sensingThreshold} from "./settings"
 import {ObjectLocation} from "./types"
 
@@ -9,7 +12,11 @@ export interface QrCode {
     publicKey: string
 }
 
-export interface SocketMessage {
+export interface SocketCommandMessage {
+    command: string
+}
+
+export interface SocketQrMessage {
     codes: QrCode[]
 }
 
@@ -45,15 +52,27 @@ export const qrCodes = qrCodesSubject.pipe(
 )
 
 const server = io()
+
 server.on("connection", socket => {
     console.log("connection")
-    socket.on("qr-codes", ({codes}: SocketMessage) => {
+    socket.on("qr-codes", ({codes}: SocketQrMessage) => {
         for (const code of codes) {
             qrCodesSubject.next({
                 ...code,
                 publicKey: normalizeCode(code.publicKey),
             })
         }
+    })
+
+    socket.on("commands", async ({command}: SocketCommandMessage) => {
+        await broadcastSignedMessage(
+            {
+                type: "broadcast",
+                event: {type: "movement", command},
+                source: {id: uuid(), publicKey, timestamp: Date.now()},
+            },
+            privateKey,
+        )
     })
 })
 

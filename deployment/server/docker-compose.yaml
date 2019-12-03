@@ -7,10 +7,3 @@ services:
             - 9001:9001
         volumes:
             - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
-
-    videos:
-        image: halverneus/static-file-server
-        ports:
-            - 8081:8080
-        volumes:
-            - "./videos/:/web/videos/"
