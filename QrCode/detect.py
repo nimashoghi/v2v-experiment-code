@@ -15,7 +15,7 @@ ap.add_argument("-v", "--video", required=True,
 	help="video")
 args = vars(ap.parse_args())
 ip = args["ip"]
-video = args["video"] if len(args["video"]) > 0 else 0
+video = int(args["video"]) if args["video"].isnumeric() else args["video"]
 print('http://{address}:8080'.format(address=ip))
 sio.connect('http://{address}:8080'.format(address=ip))
 
@@ -47,13 +47,13 @@ while True:
 		print(x,y,w,h)
 
 		if((x+(w/2.0)) < lower):
-			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+			# cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
 			location = 'LEFT'
 		elif ((x+(w/2.0)) > upper):
-			cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 0, 255), 2)
+			# cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 0, 255), 2)
 			location = 'RIGHT'
-		else:
-			cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 255, 0), 2)
+		# else:
+		# 	cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 255, 0), 2)
 		# the barcode data is a bytes object so if we want to draw it on
 		# our output image we need to convert it to a string first
 		barcodeData = barcode.data.decode("utf-8").replace('\n','')
@@ -62,8 +62,8 @@ while True:
 
 		# draw the barcode data and barcode type on the image
 		text = "{} ({})".format(barcodeData, barcodeType)
-		cv2.putText(frame, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX,
-			0.5, (0, 0, 255), 2)
+		# cv2.putText(frame, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX,
+		# 	0.5, (0, 0, 255), 2)
 
 		# print the barcode type and data to the terminal
 		print("[INFO] Found {} barcode: {}".format(barcodeType, barcodeData))

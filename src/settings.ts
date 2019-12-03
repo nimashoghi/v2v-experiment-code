@@ -26,5 +26,5 @@ export const qrCodeServerPort = parseInt(
 )
 
 // how long after a packet's timestamp can we trust it for
-// def: 10 seconds
+// def: 15 seconds
 export const packetExpirationDuration = 15000
