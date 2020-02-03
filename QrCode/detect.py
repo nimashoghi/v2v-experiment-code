@@ -1,21 +1,22 @@
 # import the necessary packages
 from pyzbar import pyzbar
-import argparse
 import cv2
 import socketio
+import os
 import time
 sio = socketio.Client()
 
 
 # construct the argument parser and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-n", "--ip", required=True,
-	help="server ip address")
-ap.add_argument("-v", "--video", required=True,
-	help="video")
-args = vars(ap.parse_args())
-ip = args["ip"]
-video = args["video"] if len(args["video"]) > 0 else 0
+# ap = argparse.ArgumentParser()
+# ap.add_argument("-n", "--ip", required=True,
+# 	help="server ip address")
+# ap.add_argument("-v", "--video", required=True,
+# 	help="video")
+# args = vars(ap.parse_args())
+ip = os.environ["IP_ADDRESS"]
+video = os.environ["VIDEO_INPUT"]
+video = int(video) if video.isnumeric() else video
 print('http://{address}:8080'.format(address=ip))
 sio.connect('http://{address}:8080'.format(address=ip))
 
@@ -47,23 +48,23 @@ while True:
 		print(x,y,w,h)
 
 		if((x+(w/2.0)) < lower):
-			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+			# cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
 			location = 'LEFT'
 		elif ((x+(w/2.0)) > upper):
-			cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 0, 255), 2)
+			# cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 0, 255), 2)
 			location = 'RIGHT'
-		else:
-			cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 255, 0), 2)
+		# else:
+		# 	cv2.rectangle(frame, (x, y), (x + w, y + h),(0, 255, 0), 2)
 		# the barcode data is a bytes object so if we want to draw it on
 		# our output image we need to convert it to a string first
 		barcodeData = barcode.data.decode("utf-8").replace('\n','')
 		barcodeType = barcode.type
-		data_list.append({"publicKey": f"-----BEGIN RSA PUBLIC KEY-----{barcodeData}-----END RSA PUBLIC KEY-----","location":location})
+		data_list.append({"publicKey": "-----BEGIN RSA PUBLIC KEY-----{}-----END RSA PUBLIC KEY-----".format(barcodeData),"location":location})
 
 		# draw the barcode data and barcode type on the image
 		text = "{} ({})".format(barcodeData, barcodeType)
-		cv2.putText(frame, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX,
-			0.5, (0, 0, 255), 2)
+		# cv2.putText(frame, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX,
+		# 	0.5, (0, 0, 255), 2)
 
 		# print the barcode type and data to the terminal
 		print("[INFO] Found {} barcode: {}".format(barcodeType, barcodeData))
@@ -71,9 +72,10 @@ while True:
 		sio.emit("qr-codes",{"codes":data_list})
 		print({"codes":data_list})
 	# show the output image
-	cv2.imshow("Image", frame)
-	if cv2.waitKey(1) & 0xFF == ord('q'):
-		break
+	# cv2.imshow("Image", frame)
+	# if cv2.waitKey(1) & 0xFF == ord('q'):
+		# break
 	print("Processing Time: " + str(time.time() - start))
+	time.sleep(1)
 
-cv2.waitKey(0)
+# cv2.waitKey(0)

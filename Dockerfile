@@ -1,4 +1,6 @@
-FROM node:alpine as builder
+FROM arm32v7/node:alpine
+
+RUN apk add --no-cache alpine-sdk linux-headers python-dev
 
 WORKDIR /app
 COPY . .

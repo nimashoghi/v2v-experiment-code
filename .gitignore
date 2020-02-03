@@ -128,3 +128,4 @@ public/
 *.pem
 dist/
 keys/
+deployment/server/videos/

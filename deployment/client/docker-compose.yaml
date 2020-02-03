@@ -1,12 +1,20 @@
 version: "3.7"
 services:
-    client:
-        image: nimashoghi/v2v-encryption
+    qr:
+        image: nimashoghi/v2v-qr
         environment:
-            MQTT_HOST: "mqtt://192.168.0.109"
-            MY_TOPIC: ${CLIENT_ID}
-            ALL_TOPICS: "0,1,2,3"
-            # PRIVATE_KEY_LOCATION: ""
-            # PUBLIC_KEY_LOCATION: ""
+            IP_ADDRESS: 0
+            VIDEO_INPUT: 0
+    client:
+        image: nimashoghi/dac-v2v:latest
+        ports:
+            - "8080:8080"
+        environment:
+            SOCKET_SERVER_PORT: "8080"
+            MQTT_HOST: "mqtt://192.168.0.120"
+            MY_TOPIC: "${CLIENT_ID}"
+            ALL_TOPICS: "0,1"
+            PRIVATE_KEY_LOCATION: "/app/keys/private.pem"
+            PUBLIC_KEY_LOCATION: "/app/keys/public.pem"
         volumes:
-            - "./keys/${CLIENT_ID}/:/app/keys/"
+            - "../../keys/${CLIENT_ID}/:/app/keys/"

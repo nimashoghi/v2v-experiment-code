@@ -8,3 +8,6 @@ scripts/
 .prettierrc.yaml
 keys/
 QrCode/
+deployment/
+keyboard-control/
+dist/

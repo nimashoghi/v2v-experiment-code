@@ -4,8 +4,7 @@
         // privileged
         "--privileged",
         // host networking
-        "--network",
-        "host",
+        "--network=host",
         // docker fowrarding
         "-v",
         "//wsl$/Ubuntu/var/run/docker.sock:/var/run/docker.sock",

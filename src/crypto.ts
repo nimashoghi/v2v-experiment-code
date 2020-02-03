@@ -1,23 +1,27 @@
 import crypto from "crypto"
-import {promises as fs} from "fs"
+import {promises as fs, readFileSync} from "fs"
 import {settings} from "./settings"
 import {Packet, Signed} from "./types"
+import {assertDefined} from "./util"
 
-export const loadKeyPair = async () => {
-    const [privateKey, publicKey] = await Promise.all([
-        fs
-            .readFile(
-                process.env.PRIVATE_KEY_LOCATION ?? "./keys/private-4.pem",
-            )
-            .then(crypto.createPrivateKey)
-            .then(key => key.export({format: "pem", type: "pkcs1"}).toString()),
-        fs
-            .readFile(process.env.PUBLIC_KEY_LOCATION ?? "./keys/public-4.pem")
-            .then(crypto.createPublicKey)
-            .then(key => key.export({format: "pem", type: "pkcs1"}).toString()),
-    ])
-    return {privateKey, publicKey}
-}
+export const loadKeyPair = () => ({
+    privateKey: crypto
+        .createPrivateKey(
+            readFileSync(assertDefined(process.env.PRIVATE_KEY_LOCATION)),
+        )
+        .export({format: "pem", type: "pkcs1"})
+        .toString()
+        .replace(/\\n/g, ""),
+    publicKey: crypto
+        .createPublicKey(
+            readFileSync(assertDefined(process.env.PUBLIC_KEY_LOCATION)),
+        )
+        .export({format: "pem", type: "pkcs1"})
+        .toString()
+        .replace(/\\n/g, ""),
+})
+
+export const {privateKey, publicKey} = loadKeyPair()
 
 const encodeMessage = (message: string) =>
     Buffer.from(message, settings.encoding)
@@ -33,11 +37,13 @@ const convertKeyInput = (input: KeyInput, type: "private" | "public") => {
 }
 
 export const sign = (message: string, key: KeyInput) =>
-    crypto.sign(
-        settings.algorithm,
-        encodeMessage(message),
-        convertKeyInput(key, "private"),
-    )
+    crypto
+        .sign(
+            settings.algorithm,
+            encodeMessage(message),
+            convertKeyInput(key, "private"),
+        )
+        .toString("base64")
 
 export const signPacket = <T extends Packet>(
     original: T,

@@ -1,5 +1,5 @@
 import * as MQTT from "async-mqtt"
-import {ReplaySubject} from "rxjs"
+import {Subject} from "rxjs"
 import {filter} from "rxjs/operators"
 import {KeyInput, signPacket} from "./crypto"
 import {mqttHost, packetExpirationDuration} from "./settings"
@@ -11,7 +11,7 @@ const ALL_TOPICS = assertDefined(process.env.ALL_TOPICS)
     .split(",")
     .filter(topic => topic !== MY_TOPIC)
 
-export const packetsSubject = new ReplaySubject<SignedPacket>()
+export const packetsSubject = new Subject<SignedPacket>()
 export const packets = packetsSubject.pipe(
     //
     filter(({source: {id, timestamp}}) => {
