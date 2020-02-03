@@ -31,7 +31,7 @@ while True:
 	lower = center - lane_width
 	upper = center + lane_width
 
-	barcodes = pyzbar.decode(frame)
+	barcodes = pyzbar.decode(frame, symbols=[ZBarSymbol.QRCODE])
 		# loop over the detected barcodes
 		# data_list = [{"publicKey": f"-----BEGIN RSA PUBLIC KEY-----{b.data.decode('utf-8')}-----END RSA PUBLIC KEY-----"} for b in barcodes]
 		#
